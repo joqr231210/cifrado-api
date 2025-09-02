@@ -89,20 +89,53 @@ public class CifradoService {
     
     private String obtenerDirectorioClaves() throws Exception {
         try {
-            // Intentar obtener desde resources en el JAR
+            // En contenedor, necesitamos copiar los archivos del JAR a un directorio temporal
+            String tempKeysDir = System.getProperty("java.io.tmpdir") + "/keystore_temp/";
+            File tempDir = new File(tempKeysDir);
+            tempDir.mkdirs();
+            
+            // Listar recursos en keystore
             var resource = getClass().getClassLoader().getResource("keystore/");
             if (resource != null) {
-                String path = resource.getPath();
-                // En Windows, limpiar el path si empieza con /C:
-                if (path.startsWith("/") && path.contains(":")) {
-                    path = path.substring(1);
+                // Si es un directorio normal (desarrollo local)
+                if (resource.getProtocol().equals("file")) {
+                    String path = resource.getPath();
+                    if (path.startsWith("/") && path.contains(":")) {
+                        path = path.substring(1);
+                    }
+                    if (!path.endsWith("/") && !path.endsWith("\\")) {
+                        path += "/";
+                    }
+                    System.out.println("Directorio de claves encontrado (local): " + path);
+                    return path;
+                } else {
+                    // Si es dentro de un JAR (producción), copiar archivos
+                    System.out.println("Copiando archivos de keystore desde JAR...");
+                    
+                    // Lista de archivos conocidos que necesitas (ajusta según tus archivos)
+                    String[] archivosKeystore = {
+                        "transferencia.jks", "certificado.cer", "llave.key" 
+                        // Añade aquí los nombres exactos de todos tus archivos de keystore
+                    };
+                    
+                    for (String nombreArchivo : archivosKeystore) {
+                        try {
+                            var archivoResource = getClass().getClassLoader().getResourceAsStream("keystore/" + nombreArchivo);
+                            if (archivoResource != null) {
+                                Files.copy(archivoResource, Paths.get(tempKeysDir + nombreArchivo));
+                                archivoResource.close();
+                                System.out.println("Copiado: " + nombreArchivo);
+                            } else {
+                                System.out.println("No encontrado: " + nombreArchivo);
+                            }
+                        } catch (Exception e) {
+                            System.out.println("Error copiando " + nombreArchivo + ": " + e.getMessage());
+                        }
+                    }
+                    
+                    System.out.println("Directorio de claves temporal: " + tempKeysDir);
+                    return tempKeysDir;
                 }
-                // Asegurar que termine con backslash en Windows
-                if (!path.endsWith("/") && !path.endsWith("\\")) {
-                    path += "/";
-                }
-                System.out.println("Directorio de claves encontrado: " + path);
-                return path;
             } else {
                 throw new RuntimeException("No se encontró el directorio keystore en resources");
             }
