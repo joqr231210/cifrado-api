@@ -112,10 +112,10 @@ public class CifradoService {
                     // Si es dentro de un JAR (producción), copiar archivos
                     System.out.println("Copiando archivos de keystore desde JAR...");
                     
-                    // Lista de archivos conocidos que necesitas (ajusta según tus archivos)
+                    // Lista de archivos de keystore que realmente tienes
                     String[] archivosKeystore = {
-                        "transferencia.jks", "certificado.cer", "llave.key" 
-                        // Añade aquí los nombres exactos de todos tus archivos de keystore
+                        "transferencia.jks"
+                        // Añade aquí otros archivos si los tienes
                     };
                     
                     for (String nombreArchivo : archivosKeystore) {
