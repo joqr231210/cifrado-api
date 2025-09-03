@@ -3,13 +3,13 @@ package com.sirexe.cifradoapi.service;
 import cifrado.Cifrar;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import java.nio.file.StandardCopyOption;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 
 @Service
 public class CifradoService {
@@ -25,27 +25,33 @@ public class CifradoService {
         File directorioTemporal = new File(tempDir);
         directorioTemporal.mkdirs();
         
+        // Variables para limpieza
+        File archivoEnDirectorioActual = null;
+        File archivoCifradoGenerado = null;
+        
         try {
-            // Guardar archivo original temporalmente
+            // 1. Guardar archivo original temporalmente
             File archivoTemporal = new File(tempDir + nombreOriginal);
             archivo.transferTo(archivoTemporal);
             
-            // Obtener directorio de claves desde resources
+            // 2. Copiar archivo al directorio de trabajo actual (/app en Railway)
+            String directorioActual = System.getProperty("user.dir");
+            archivoEnDirectorioActual = new File(directorioActual, nombreOriginal);
+            Files.copy(archivoTemporal.toPath(), archivoEnDirectorioActual.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            
+            // 3. Obtener directorio de claves desde resources
             String directorioClaves = obtenerDirectorioClaves();
             
-            // Cambiar al directorio temporal para que el JAR genere el archivo ahí
-            // NUEVO ENFOQUE: Copiar archivo al directorio de trabajo actual
-String directorioActual = System.getProperty("user.dir");
-File archivoEnActual = new File(directorioActual + "/" + nombreOriginal);
-Files.copy(archivoTemporal.toPath(), archivoEnActual.toPath(), StandardCopyOption.REPLACE_EXISTING);
-            
-            // Logging para debug (igual que tu programa original)
+            // Logging para debug
             System.out.println("extension: " + extension);
             System.out.println("nombre de archivo: " + nombreSinExtension);
-            System.out.println("directorio de claves:" + directorioClaves);
+            System.out.println("directorio de claves: " + directorioClaves);
+            System.out.println("directorio actual: " + directorioActual);
+            System.out.println("archivo copiado a: " + archivoEnDirectorioActual.getAbsolutePath());
+            System.out.println("archivo copiado existe: " + archivoEnDirectorioActual.exists());
             
+            // 4. Llamar al método de cifrado (desde directorio actual, sin cambiar user.dir)
             try {
-                // Llamar al método de cifrado EXACTAMENTE como en tu programa
                 Cifrar.cifra(extension, nombreSinExtension, directorioClaves);
                 System.out.println("Cifrado completado exitosamente.");
                 
@@ -53,57 +59,60 @@ Files.copy(archivoTemporal.toPath(), archivoEnActual.toPath(), StandardCopyOptio
                 System.err.println("Error durante el cifrado: " + e.getMessage());
                 e.printStackTrace();
                 throw e;
-            } finally {
-                // Restaurar directorio original
-                System.setProperty("user.dir", directorioOriginal);
             }
             
-            // Buscar el archivo cifrado DESPUÉS del cifrado exitoso
-            // Ahora debe estar en el directorio actual, no en el temporal
-            String directorioActual = System.getProperty("user.dir");
-            File archivoCifrado = buscarArchivoCifrado(directorioActual + "/", nombreSinExtension, extension);
+            // 5. Buscar el archivo cifrado en el directorio actual
+            archivoCifradoGenerado = buscarArchivoCifrado(directorioActual + "/", nombreSinExtension, extension);
             
-            if (archivoCifrado == null || !archivoCifrado.exists()) {
+            if (archivoCifradoGenerado == null || !archivoCifradoGenerado.exists()) {
                 // Listar archivos para debug
                 File dirActual = new File(directorioActual);
                 File[] archivos = dirActual.listFiles();
                 System.out.println("Archivos en directorio actual después del cifrado:");
                 if (archivos != null) {
                     for (File f : archivos) {
-                        System.out.println("  - " + f.getName());
+                        System.out.println("  - " + f.getName() + " (" + f.length() + " bytes)");
                     }
                 }
-                throw new RuntimeException("No se pudo generar el archivo cifrado");
+                throw new RuntimeException("No se pudo encontrar el archivo cifrado");
             }
             
-            System.out.println("Archivo cifrado encontrado: " + archivoCifrado.getName() + " (" + archivoCifrado.length() + " bytes)");
+            System.out.println("Archivo cifrado encontrado: " + archivoCifradoGenerado.getName() + " (" + archivoCifradoGenerado.length() + " bytes)");
             
-            // Leer el archivo cifrado
-            byte[] contenidoCifrado = Files.readAllBytes(archivoCifrado.toPath());
-            
-            // Limpiar archivo cifrado del directorio actual
-            archivoCifrado.delete();
+            // 6. Leer el contenido del archivo cifrado
+            byte[] contenidoCifrado = Files.readAllBytes(archivoCifradoGenerado.toPath());
             
             return contenidoCifrado;
             
         } finally {
-            // Limpiar directorio temporal
-            limpiarDirectorioTemporal(directorioTemporal);
+            // Limpieza: eliminar archivos temporales y generados
+            try {
+                if (archivoEnDirectorioActual != null && archivoEnDirectorioActual.exists()) {
+                    archivoEnDirectorioActual.delete();
+                    System.out.println("Archivo original limpiado: " + archivoEnDirectorioActual.getName());
+                }
+                if (archivoCifradoGenerado != null && archivoCifradoGenerado.exists()) {
+                    archivoCifradoGenerado.delete();
+                    System.out.println("Archivo cifrado limpiado: " + archivoCifradoGenerado.getName());
+                }
+                limpiarDirectorioTemporal(directorioTemporal);
+            } catch (Exception e) {
+                System.err.println("Error en limpieza: " + e.getMessage());
+            }
         }
     }
     
     private String obtenerDirectorioClaves() throws Exception {
         try {
-            // En contenedor, necesitamos copiar los archivos del JAR a un directorio temporal
+            // En contenedor, copiar archivos del JAR a directorio temporal
             String tempKeysDir = System.getProperty("java.io.tmpdir") + "/keystore_temp/";
             File tempDir = new File(tempKeysDir);
             tempDir.mkdirs();
             
-            // Listar recursos en keystore
             var resource = getClass().getClassLoader().getResource("keystore/");
             if (resource != null) {
-                // Si es un directorio normal (desarrollo local)
                 if (resource.getProtocol().equals("file")) {
+                    // Desarrollo local - usar directorio directamente
                     String path = resource.getPath();
                     if (path.startsWith("/") && path.contains(":")) {
                         path = path.substring(1);
@@ -114,20 +123,17 @@ Files.copy(archivoTemporal.toPath(), archivoEnActual.toPath(), StandardCopyOptio
                     System.out.println("Directorio de claves encontrado (local): " + path);
                     return path;
                 } else {
-                    // Si es dentro de un JAR (producción), copiar archivos
+                    // Producción - copiar archivos desde JAR
                     System.out.println("Copiando archivos de keystore desde JAR...");
                     
-                    // Lista de archivos de keystore que realmente tienes
-                    String[] archivosKeystore = {
-                        "transferencia.jks"
-                        // Añade aquí otros archivos si los tienes
-                    };
+                    // Solo el archivo que realmente tienes
+                    String[] archivosKeystore = {"transferencia.jks"};
                     
                     for (String nombreArchivo : archivosKeystore) {
                         try {
                             var archivoResource = getClass().getClassLoader().getResourceAsStream("keystore/" + nombreArchivo);
                             if (archivoResource != null) {
-                                Files.copy(archivoTemporal.toPath(), archivoEnActual.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                                Files.copy(archivoResource, Paths.get(tempKeysDir + nombreArchivo), StandardCopyOption.REPLACE_EXISTING);
                                 archivoResource.close();
                                 System.out.println("Copiado: " + nombreArchivo);
                             } else {
@@ -152,10 +158,11 @@ Files.copy(archivoTemporal.toPath(), archivoEnActual.toPath(), StandardCopyOptio
     private File buscarArchivoCifrado(String directorio, String nombreBase, String extensionOriginal) {
         // Posibles nombres que podría generar tu JAR
         String[] posiblesNombres = {
+            nombreBase + ".cif",
+            nombreBase + extensionOriginal + ".cif", 
+            nombreBase + ".enc",
             nombreBase + extensionOriginal + ".enc",
-            nombreBase + ".enc", 
             nombreBase + "_cifrado" + extensionOriginal,
-            nombreBase + extensionOriginal + "_cifrado",
             nombreBase + ".cifrado"
         };
         
@@ -167,13 +174,15 @@ Files.copy(archivoTemporal.toPath(), archivoEnActual.toPath(), StandardCopyOptio
             }
         }
         
-        // Si no encuentra con nombres conocidos, buscar cualquier archivo nuevo que no sea el original
+        // Si no encuentra con nombres conocidos, buscar cualquier archivo nuevo que contenga el nombre base
         File dir = new File(directorio);
         File[] archivos = dir.listFiles((d, name) -> 
-            name.contains(nombreBase) && !name.equals(nombreBase + extensionOriginal));
+            name.contains(nombreBase) && 
+            !name.equals(nombreBase + extensionOriginal) &&
+            (name.endsWith(".cif") || name.endsWith(".enc") || name.contains("cifrado")));
         
         if (archivos != null && archivos.length > 0) {
-            System.out.println("Archivo cifrado encontrado: " + archivos[0].getName());
+            System.out.println("Archivo cifrado encontrado (búsqueda genérica): " + archivos[0].getName());
             return archivos[0];
         }
         
