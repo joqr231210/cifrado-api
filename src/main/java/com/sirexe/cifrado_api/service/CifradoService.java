@@ -114,7 +114,7 @@ public class CifradoService {
                     
                     // Lista de archivos de keystore que realmente tienes
                     String[] archivosKeystore = {
-                        "transferencia.jks", "certificado.cer", "llave.key" 
+                        "transferencia.jks"
                         // Añade aquí otros archivos si los tienes
                     };
                     
