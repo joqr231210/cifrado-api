@@ -37,32 +37,9 @@ public class CifradoService {
             System.setProperty("user.dir", tempDir);
             
             // Logging para debug (igual que tu programa original)
-            // Logging para debug (igual que tu programa original)
-System.out.println("extension: " + extension);
-System.out.println("nombre de archivo: " + nombreSinExtension);
-System.out.println("directorio de claves:" + directorioClaves);
-System.out.println("directorio actual: " + System.getProperty("user.dir"));
-System.out.println("archivo temporal guardado: " + archivoTemporal.getAbsolutePath());
-System.out.println("archivo existe: " + archivoTemporal.exists());
-
-// Listar archivos en directorio temporal para debug
-File[] archivosEnTemp = directorioTemporal.listFiles();
-System.out.println("Archivos en directorio temporal:");
-if (archivosEnTemp != null) {
-    for (File f : archivosEnTemp) {
-        System.out.println("  - " + f.getName());
-    }
-}
-
-// ASEGURAR que el directorio de trabajo sea el temporal
-File directorioActual = new File(System.getProperty("user.dir"));
-System.out.println("Archivos en directorio actual de trabajo:");
-File[] archivosEnActual = directorioActual.listFiles();
-if (archivosEnActual != null) {
-    for (File f : archivosEnActual) {
-        System.out.println("  - " + f.getName());
-    }
-}
+            System.out.println("extension: " + extension);
+            System.out.println("nombre de archivo: " + nombreSinExtension);
+            System.out.println("directorio de claves:" + directorioClaves);
             
             try {
                 // Llamar al método de cifrado EXACTAMENTE como en tu programa
@@ -79,28 +56,30 @@ if (archivosEnActual != null) {
             }
             
             // Buscar el archivo cifrado DESPUÉS del cifrado exitoso
-            File archivoCifrado = buscarArchivoCifrado(tempDir, nombreSinExtension, extension);
-            
-            // Si no lo encuentra en temp, buscar en directorio original
-            if (archivoCifrado == null) {
-                String directorioOriginalRestaurado = System.getProperty("user.dir");
-                File dirOriginal = new File(directorioOriginalRestaurado);
-                File[] archivosEnOriginal = dirOriginal.listFiles((d, name) -> 
-                    name.contains(nombreSinExtension) && !name.equals(nombreSinExtension + extension));
-                
-                if (archivosEnOriginal != null && archivosEnOriginal.length > 0) {
-                    archivoCifrado = archivosEnOriginal[0];
-                    System.out.println("Usando archivo del directorio original: " + archivoCifrado.getName());
-                }
-            }
+            // Ahora debe estar en el directorio actual, no en el temporal
+            String directorioActual = System.getProperty("user.dir");
+            File archivoCifrado = buscarArchivoCifrado(directorioActual + "/", nombreSinExtension, extension);
             
             if (archivoCifrado == null || !archivoCifrado.exists()) {
+                // Listar archivos para debug
+                File dirActual = new File(directorioActual);
+                File[] archivos = dirActual.listFiles();
+                System.out.println("Archivos en directorio actual después del cifrado:");
+                if (archivos != null) {
+                    for (File f : archivos) {
+                        System.out.println("  - " + f.getName());
+                    }
+                }
                 throw new RuntimeException("No se pudo generar el archivo cifrado");
             }
             
+            System.out.println("Archivo cifrado encontrado: " + archivoCifrado.getName() + " (" + archivoCifrado.length() + " bytes)");
+            
             // Leer el archivo cifrado
             byte[] contenidoCifrado = Files.readAllBytes(archivoCifrado.toPath());
-            System.out.println("Archivo cifrado leído: " + archivoCifrado.getName() + " (" + contenidoCifrado.length + " bytes)");
+            
+            // Limpiar archivo cifrado del directorio actual
+            archivoCifrado.delete();
             
             return contenidoCifrado;
             
