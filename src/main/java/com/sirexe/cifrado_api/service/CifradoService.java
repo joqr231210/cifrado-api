@@ -37,9 +37,32 @@ public class CifradoService {
             System.setProperty("user.dir", tempDir);
             
             // Logging para debug (igual que tu programa original)
-            System.out.println("extension: " + extension);
-            System.out.println("nombre de archivo: " + nombreSinExtension);
-            System.out.println("directorio de claves:" + directorioClaves);
+            // Logging para debug (igual que tu programa original)
+System.out.println("extension: " + extension);
+System.out.println("nombre de archivo: " + nombreSinExtension);
+System.out.println("directorio de claves:" + directorioClaves);
+System.out.println("directorio actual: " + System.getProperty("user.dir"));
+System.out.println("archivo temporal guardado: " + archivoTemporal.getAbsolutePath());
+System.out.println("archivo existe: " + archivoTemporal.exists());
+
+// Listar archivos en directorio temporal para debug
+File[] archivosEnTemp = directorioTemporal.listFiles();
+System.out.println("Archivos en directorio temporal:");
+if (archivosEnTemp != null) {
+    for (File f : archivosEnTemp) {
+        System.out.println("  - " + f.getName());
+    }
+}
+
+// ASEGURAR que el directorio de trabajo sea el temporal
+File directorioActual = new File(System.getProperty("user.dir"));
+System.out.println("Archivos en directorio actual de trabajo:");
+File[] archivosEnActual = directorioActual.listFiles();
+if (archivosEnActual != null) {
+    for (File f : archivosEnActual) {
+        System.out.println("  - " + f.getName());
+    }
+}
             
             try {
                 // Llamar al método de cifrado EXACTAMENTE como en tu programa
