@@ -3,6 +3,7 @@ package com.sirexe.cifradoapi.service;
 import cifrado.Cifrar;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import java.nio.file.StandardCopyOption;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,8 +34,10 @@ public class CifradoService {
             String directorioClaves = obtenerDirectorioClaves();
             
             // Cambiar al directorio temporal para que el JAR genere el archivo ahí
-            String directorioOriginal = System.getProperty("user.dir");
-            System.setProperty("user.dir", tempDir);
+            // NUEVO ENFOQUE: Copiar archivo al directorio de trabajo actual
+String directorioActual = System.getProperty("user.dir");
+File archivoEnActual = new File(directorioActual + "/" + nombreOriginal);
+Files.copy(archivoTemporal.toPath(), archivoEnActual.toPath(), StandardCopyOption.REPLACE_EXISTING);
             
             // Logging para debug (igual que tu programa original)
             System.out.println("extension: " + extension);
@@ -124,7 +127,7 @@ public class CifradoService {
                         try {
                             var archivoResource = getClass().getClassLoader().getResourceAsStream("keystore/" + nombreArchivo);
                             if (archivoResource != null) {
-                                Files.copy(archivoResource, Paths.get(tempKeysDir + nombreArchivo));
+                                Files.copy(archivoTemporal.toPath(), archivoEnActual.toPath(), StandardCopyOption.REPLACE_EXISTING);
                                 archivoResource.close();
                                 System.out.println("Copiado: " + nombreArchivo);
                             } else {
